@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<svg version="1.1" id="icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px"
+	 y="0px" viewBox="0 0 160 160" style="enable-background:new 0 0 160 160;" xml:space="preserve">
+ 
+<g id="iconG">
+	<g>
+		<path class="st0" fill="currentColor" d="M80,0c0,0-40,24.6-40,80c0,58.3,39.9,80.2,40,80s40-21.6,40-80C120,24.6,80,0,80,0z M80,136c0,0-16-9.1-16-35
+			c0.1-19.9,16-29,16-29s16,8,16,29C96,127.1,80,136,80,136z"/>
+	</g>
+</g>
+</svg>
