@@ -60,7 +60,7 @@ export default {
 
     async function loadManifest() {
       try {
-        const response = await fetch('/manifest.json')
+        const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/manifest.json`)
         if (!response.ok) throw new Error('Failed to fetch manifest')
         const manifest = await response.json()
         // Update your Pinia store with manifest data
@@ -74,7 +74,7 @@ export default {
       try {
         // Use the latestGeojson file name from the manifest
         const geojsonFile = store.manifestData?.latestGeojson || 'default.geojson'
-        const response = await fetch(`/${geojsonFile}`)
+        const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/${geojsonFile}`)
         if (!response.ok) throw new Error('Failed to fetch GeoJSON')
         const data = await response.json()
         store.setGeojsonData(data)
@@ -84,7 +84,7 @@ export default {
     }
 
     async function initializeMap() {
-      mapboxgl.accessToken = 'pk.eyJ1IjoibXVzdGVyODA4IiwiYSI6ImNtNG44NzRkaTA2MW8ya3NuY3VjZnpqZjYifQ.LTfkCNgcTgrlkXvkBi-0uA'
+      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
       map.value = new mapboxgl.Map({
         container: mapContainer.value,
         style: 'mapbox://styles/mapbox/navigation-night-v1',
