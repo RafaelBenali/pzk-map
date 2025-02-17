@@ -90,6 +90,9 @@ export default {
   background: rgba(0, 0, 0, 0.6);
   padding: 10px;
   border-radius: 4px;
+  width: 80px;
+  justify-content: center;
+  border: 1px solid white;
 }
 .zoom-button {
   width: 30px;

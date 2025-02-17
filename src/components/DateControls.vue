@@ -746,8 +746,9 @@ export default {
   cursor: pointer;
   margin: 0 4px;
 }
-.button-time.active { 
-  color: white;
+#app .button-time:hover { 
+  color: black !important;
+  background-color: white;
 }
 .controls-group {
   display: flex;
@@ -763,6 +764,7 @@ export default {
   gap: 5px;
   color: white;
   opacity: 0.5;
+  pointer-events: none;
 }
 .date-range-slider-container {
   width: 200px;
