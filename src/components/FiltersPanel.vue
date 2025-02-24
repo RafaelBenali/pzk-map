@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="filters-container">
     <div class="filters-toggle-container">
       <input
         v-model="searchQuery"
@@ -8,36 +8,71 @@
         placeholder="Поиск по имени или статье"
         class="search-input"
       />
+      <!-- Main Filters toggle button -->
       <button
         class="filters-toggle"
-        @click="setActiveFilter('names')"
+        @click="toggleFiltersPanel"
         :class="{
-          'active-panel': activeFilterCategory === 'names',
-          'active-filter': hasActiveNameFilters
+          'active-panel': filtersVisible,
+          'active-filter': hasAnyActiveFilters
         }"
       >
-        Имена
+        Фильтры
       </button>
-      <button
-        class="filters-toggle"
-        @click="setActiveFilter('clauses')"
-        :class="{
-          'active-panel': activeFilterCategory === 'clauses',
-          'active-filter': hasActiveClauseFilters
-        }"
-      >
-        Статьи
-      </button>
-      <button
-        class="filters-toggle"
-        @click="setActiveFilter('tags')"
-        :class="{
-          'active-panel': activeFilterCategory === 'tags',
-          'active-filter': hasActiveTagFilters
-        }"
-      >
-        Дела
-      </button>
+      
+      <!-- Inline additional filters (appear when filtersVisible is true) -->
+      <div v-if="filtersVisible" class="inline-filters">
+        <button
+          class="filters-toggle"
+          @click="setActiveFilter('names')"
+          :class="{
+            'active-panel': activeFilterCategory === 'names',
+            'active-filter': hasActiveNameFilters
+          }"
+        >
+          Имена
+        </button>
+        <button
+          class="filters-toggle"
+          @click="setActiveFilter('clauses')"
+          :class="{
+            'active-panel': activeFilterCategory === 'clauses',
+            'active-filter': hasActiveClauseFilters
+          }"
+        >
+          Статьи
+        </button>
+        <button
+          class="filters-toggle"
+          @click="setActiveFilter('tags')"
+          :class="{
+            'active-panel': activeFilterCategory === 'tags',
+            'active-filter': hasActiveTagFilters
+          }"
+        >
+          Дела
+        </button>
+        <div class="checkboxes">
+          <label class="filter-label inline-checkbox">
+            <input
+              type="checkbox"
+              v-model="linkinkEnabled"
+            />
+            <span></span>
+            Группа поддержки
+          </label>
+          <label class="filter-label inline-checkbox">
+            <input
+              type="checkbox"
+              v-model="geocodeStatusEnabled"
+            />
+            <span></span>
+            Местоположение неизвестно
+          </label>
+        </div>
+      </div>
+
+      <!-- Reset Filters button -->
       <button
         class="filters-toggle"
         @click="resetFilters"
@@ -46,11 +81,10 @@
         Сбросить
       </button>
     </div>
-    <div
-      v-if="filtersVisible"
-      class="filters"
-      @click="closeFiltersPanel"
-    >
+    
+    <!-- Category-specific filter list -->
+    
+    <div v-if="activeFilterCategory" class="filters">
       <div class="filters-content" @click.stop>
         <div v-if="activeFilterCategory === 'names'">
           <div v-if="filteredNames.length === 0" class="no-results">
@@ -148,11 +182,21 @@ export default {
     const selectedClauses = ref([])
     const selectedTags = ref([])
 
+    // New additional filters
+    const linkinkEnabled = ref(false)
+    const geocodeStatusEnabled = ref(true)
+
     const hasActiveNameFilters = computed(() => selectedNames.value.length > 0)
     const hasActiveClauseFilters = computed(() => selectedClauses.value.length > 0)
     const hasActiveTagFilters = computed(() => selectedTags.value.length > 0)
-    const hasAnyActiveFilters = computed(
-      () => hasActiveNameFilters.value || hasActiveClauseFilters.value || hasActiveTagFilters.value
+    const hasActiveAdditionalFilters = computed(() => {
+      return linkinkEnabled.value || !geocodeStatusEnabled.value
+    })
+    const hasAnyActiveFilters = computed(() =>
+      hasActiveNameFilters.value ||
+      hasActiveClauseFilters.value ||
+      hasActiveTagFilters.value ||
+      hasActiveAdditionalFilters.value
     )
 
     const filteredNames = computed(() => {
@@ -195,14 +239,16 @@ export default {
       return tags
     })
 
-    function setActiveFilter(category) {
-      if (activeFilterCategory.value === category) {
-        closeFiltersPanel()
-      } else {
-        activeFilterCategory.value = category
-        filtersVisible.value = true
-        clearSearch()
+    function toggleFiltersPanel() {
+      filtersVisible.value = !filtersVisible.value
+      if (!filtersVisible.value) {
+        activeFilterCategory.value = null
       }
+    }
+
+    function setActiveFilter(category) {
+      activeFilterCategory.value =
+        activeFilterCategory.value === category ? null : category
     }
 
     function closeFiltersPanel() {
@@ -213,9 +259,8 @@ export default {
     function handleSearch() {
       if (!searchQuery.value) return
       const isNum = /^\d/.test(searchQuery.value)
-      const category = isNum ? 'clauses' : 'names'
       filtersVisible.value = true
-      activeFilterCategory.value = category
+      activeFilterCategory.value = isNum ? 'clauses' : 'names'
     }
 
     function handleSearchEnter() {
@@ -251,41 +296,40 @@ export default {
       selectedNames.value = []
       selectedClauses.value = []
       selectedTags.value = []
+      linkinkEnabled.value = false
+      geocodeStatusEnabled.value = true
       clearSearch()
       closeFiltersPanel()
-      // Reset the entire state including date-range and Graph Mode.
       store.resetAll()
       emitFilters()
     }
 
     function emitFilters() {
-      emit('filtersUpdated', {
+      const filters = {
         selectedNames: selectedNames.value,
         selectedClauses: selectedClauses.value,
-        selectedTags: selectedTags.value
-      })
-    }
-
-    function handleClickOutside(event) {
-      const filterPanel = document.querySelector('.filters')
-      const toggleContainer = document.querySelector('.filters-toggle-container')
-      if (
-        filterPanel &&
-        !filterPanel.contains(event.target) &&
-        toggleContainer &&
-        !toggleContainer.contains(event.target)
-      ) {
-        closeFiltersPanel()
+        selectedTags: selectedTags.value,
+        filterLinkink: linkinkEnabled.value,
+        filterGeocodeStatus: geocodeStatusEnabled.value
       }
+      emit('filtersUpdated', filters)
+      store.updateFilters(filters)
     }
 
     watch(
-      [selectedNames, selectedClauses, selectedTags],
+      [selectedNames, selectedClauses, selectedTags, linkinkEnabled, geocodeStatusEnabled],
       () => {
         emitFilters()
       },
       { deep: true }
     )
+
+    function handleClickOutside(event) {
+      const container = document.querySelector('.filters-toggle-container')
+      if (container && !container.contains(event.target)) {
+        closeFiltersPanel()
+      }
+    }
 
     onMounted(() => {
       document.addEventListener('click', handleClickOutside)
@@ -302,6 +346,8 @@ export default {
       selectedNames,
       selectedClauses,
       selectedTags,
+      linkinkEnabled,
+      geocodeStatusEnabled,
       hasActiveNameFilters,
       hasActiveClauseFilters,
       hasActiveTagFilters,
@@ -309,6 +355,7 @@ export default {
       filteredNames,
       filteredClauses,
       filteredTags,
+      toggleFiltersPanel,
       setActiveFilter,
       closeFiltersPanel,
       handleSearch,
@@ -320,6 +367,8 @@ export default {
   }
 }
 </script>
+
+
 <style scoped>
 .filters-toggle-container {
   position: absolute;
@@ -335,7 +384,7 @@ export default {
   color: white;
   padding: 8px 12px;
   outline: none;
-  margin: 10px 15px 10px 25px;
+  margin: 10px 5px 10px 25px;
 }
 .filters-toggle {
   padding: 8px 12px;
@@ -343,7 +392,7 @@ export default {
   border: 1px solid black;
   border-radius: 4px;
   cursor: pointer;
-  margin-right: 20px;
+  margin-right: 10px;
   margin-top: 10px;
   left: 10px;
   position: relative;
@@ -404,6 +453,41 @@ export default {
 .filter-buttons button {
   margin-right: 10px;
 }
+
+.checkboxes{
+  padding-top: 14px;
+  margin-left: 10px;
+}
+.inline-filters{
+  display: inline-flex;
+}
+.inline-checkbox{
+  color: white;
+  margin-left: 0;
+  font-size: 12px;
+  margin-top: 0;
+} 
+.inline-checkbox input{
+  margin: 0;
+}
+.inline-checkbox input {
+  visibility: hidden; 
+  display: block;
+  height: 0;
+  width: 0;
+  position: absolute;
+  overflow: hidden;
+}
+.inline-checkbox span { 
+  height: 10px;
+  width: 10px;
+  border: 1px solid white;
+  display: inline-block;
+}
+.inline-checkbox [type=checkbox]:checked + span {
+  background: white;
+}
+
 @media (max-width: 1100px) {
   .filters {
     height: calc(100vh - 333px);

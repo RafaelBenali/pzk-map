@@ -6,7 +6,6 @@
 
     <ZoomControls v-if="map" :map="map" /> 
 
-
     <div class="controls-container">
       <div class="top-controls">
         <Counter />
@@ -17,8 +16,6 @@
 
     <HowTo />
     <Letters />
-
-
 
     <Modal
       v-if="showModal"
@@ -68,6 +65,9 @@ export default {
     const selectedFeature = ref(null)
     let hoveredFeatureId = null
 
+    // NEW: Fallback coordinates storage for rf.geojson features.
+    let fallbackCoordinates = []
+
     async function loadManifest() {
       try {
         const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/manifest.json`)
@@ -83,7 +83,7 @@ export default {
     async function loadGeoJSONData() {
       try {
         // Use the latestGeojson file name from the manifest
-        const geojsonFile = store.manifestData?.latestGeojson || 'default.geojson'
+        const geojsonFile = store.manifestData?.latestGeojson || 'list_841_14-02-2025.geojson'
         const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/${geojsonFile}`)
         if (!response.ok) throw new Error('Failed to fetch GeoJSON')
         const data = await response.json()
@@ -93,13 +93,26 @@ export default {
       }
     }
 
+    // NEW: Load the fallback rf.geojson file and extract its coordinates.
+    async function loadFallbackGeoJSONData() {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/rf.geojson`)
+        if (!response.ok) throw new Error('Failed to fetch rf.geojson')
+        const fallbackData = await response.json()
+        // Assuming fallbackData is a FeatureCollection, extract each feature's coordinates.
+        fallbackCoordinates = fallbackData.features.map(f => f.geometry.coordinates)
+      } catch (error) {
+        console.error('Error loading fallback GeoJSON:', error)
+      }
+    }
+
     async function initializeMap() {
       mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
       map.value = new mapboxgl.Map({
         container: mapContainer.value,
         style: 'mapbox://styles/mapbox/navigation-night-v1',
         center: [96.712933, 62.917018],
-        zoom: 5,
+        zoom: 6,
         renderWorldCopies: true
       })
 
@@ -129,17 +142,17 @@ export default {
           })
         }
       }
-      map.value.on('movestart', handleInteraction)
+      // map.value.on('movestart', handleInteraction)
 
       await new Promise(resolve => map.value.on('load', resolve))
       
-      // Load the manifest first so we know which GeoJSON file to use
+      // Load manifest, geojson data, and fallback data sequentially.
       await loadManifest()
       await loadGeoJSONData()
+      await loadFallbackGeoJSONData()
       await loadMarkerImages()
       setupMapLayers()
     }
-
 
     async function loadMarkerImages() {
       await Promise.all([
@@ -250,9 +263,16 @@ export default {
       }
     }
 
+    // Modified: When preparing marker data, check for features with geocodeStatus "rf" and replace their coordinates.
     function prepareGeoJSONForMarkers(features) {
+      let fallbackIndex = 0
       const byCoord = {}
       features.forEach(f => {
+        if (f.properties.geocodeStatus === 'rf' && fallbackCoordinates.length > fallbackIndex) {
+          // Replace the coordinate with the next coordinate from the fallback file.
+          f.geometry.coordinates = fallbackCoordinates[fallbackIndex]
+          fallbackIndex++
+        }
         const coord = f.geometry.coordinates.join(',')
         if (!byCoord[coord]) byCoord[coord] = []
         byCoord[coord].push(f)

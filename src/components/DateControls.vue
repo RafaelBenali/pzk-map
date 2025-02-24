@@ -33,7 +33,7 @@
       <!-- Histogram wrapper -->
       <div v-if="store.dateRange.isGraphMode" class="histogram-wrapper" ref="histogramWrapper">
         <div class="histogram-scroll-container">
-          <!-- The container has a click handler to catch clicks in empty space -->
+          <!-- Histogram container: clicking here uses fixed bar width -->
           <div
             class="histogram-container"
             ref="histogramContainer"
@@ -46,12 +46,12 @@
               :style="rangeOverlayStyle"
               @mousedown.prevent="startRangeDrag"
             ></div>
-            <!-- Each bar has its own direct click handler -->
+            <!-- Render each bar -->
             <div
-              v-for="month in store.monthlyData"
+              v-for="(month, index) in store.monthlyData"
               :key="month.date"
               class="histogram-bar"
-              :class="{ 'active': isMonthActive(month), 'in-range': isInCurrentRange(month) }"
+              :class="{ active: isMonthActive(month), 'in-range': isInCurrentRange(month) }"
               :style="{ height: getBarHeight(month), opacity: getBarOpacity(month) }"
               @click.stop="directBarClick(month)"
               @mouseenter="showMonthTooltip($event, month)"
@@ -60,18 +60,18 @@
           </div>
           <div class="year-labels">
             <div
-              v-for="yearLabel in store.yearLabels"
+              v-for="yearLabel in computedYearLabels"
               :key="yearLabel.year"
-              class="year-label active"
-              :class="{ 'highlighted': isYearInRange(yearLabel.year) }"
+              class="year-label"
+              :style="{ left: yearLabel.left }"
+              :class="{ highlighted: isYearInRange(yearLabel.year) }"
               @click.stop="handleYearClick(yearLabel.year)"
-              @mouseenter="showYearTooltip($event, yearLabel)"
-              @mouseleave="hideTooltip"
             >
               {{ yearLabel.year }}
             </div>
           </div>
         </div>
+        <!-- Tooltip element -->
         <div
           v-if="tooltipData"
           class="histogram-tooltip"
@@ -84,6 +84,7 @@
     </div>
   </div>
 </template>
+
 <script>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useMapStore } from '../stores/mapStore';
@@ -104,50 +105,58 @@ export default {
     const isDragging = ref(false);
     const dragStartX = ref(null);
     const lastSliderValue = ref(null);
+    // Our design: each bar has width 3px + margin-right 4px = 7px total.
+    const BAR_TOTAL_WIDTH = 7;
 
-    // Computed formatted display dates
     const formattedStartDate = computed(() =>
       store.dateRange.startDate.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long' })
     );
     const formattedEndDate = computed(() =>
       store.dateRange.endDate.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long' })
     );
-
     const showRangeOverlay = computed(() =>
       store.dateRange.isGraphMode && !isAllRangeSelected()
     );
-
+    // Overlay computed relative to effectiveFullRangeStart.
     const rangeOverlayStyle = computed(() => {
       if (!store.dateRange.startDate || !store.dateRange.endDate) return { display: 'none' };
-      const BAR_WIDTH = 3, BAR_MARGIN = 4, TOTAL_BAR_WIDTH = BAR_WIDTH + BAR_MARGIN;
-      const startYear = store.dateRange.startDate.getFullYear(),
-            startMonth = store.dateRange.startDate.getMonth();
-      const endYear = store.dateRange.endDate.getFullYear(),
-            endMonth = store.dateRange.endDate.getMonth();
-      const left = (startYear - 2000) * (TOTAL_BAR_WIDTH * 12) + startMonth * TOTAL_BAR_WIDTH;
-      const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-      const width = monthsDiff * TOTAL_BAR_WIDTH;
-      return { left: left + 'px', width: width + 'px' };
+      const offset =
+        (store.dateRange.startDate.getFullYear() - store.effectiveFullRangeStart.getFullYear()) * 12 +
+        (store.dateRange.startDate.getMonth() - store.effectiveFullRangeStart.getMonth());
+      const monthsDiff =
+        (store.dateRange.endDate.getFullYear() - store.dateRange.startDate.getFullYear()) * 12 +
+        (store.dateRange.endDate.getMonth() - store.dateRange.startDate.getMonth()) + 1;
+      return { left: offset * BAR_TOTAL_WIDTH + 'px', width: monthsDiff * BAR_TOTAL_WIDTH + 'px' };
+    });
+    // Compute year labels: each time the year changes in monthlyData, record the index.
+    const computedYearLabels = computed(() => {
+      const labels = [];
+      const mData = store.monthlyData;
+      mData.forEach((month, index) => {
+        if (index === 0 || month.year !== mData[index - 1].year) {
+          labels.push({ year: month.year, left: (index * BAR_TOTAL_WIDTH) + 'px' });
+        }
+      });
+      return labels;
     });
 
-    // Dummy handler to avoid reference errors
-    function handleHistogramClick(e) { /* no-op */ }
-
+    function isAllRangeSelected() {
+      return store.dateRange.selectedRangeMonths === store.effectiveTotalMonths;
+    }
+    // When clicking on the container (empty space), use fixed BAR_TOTAL_WIDTH.
     function containerClick(e) {
       if (!store.dateRange.isGraphMode) return;
       stopAllPlayback();
       const container = histogramContainer.value;
       if (!container) return;
       const rect = container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const barWidth = rect.width / store.monthlyData.length;
-      const idx = Math.floor(x / barWidth);
+      const clickX = e.clientX - rect.left;
+      const idx = Math.floor(clickX / BAR_TOTAL_WIDTH);
       if (idx >= 0 && idx < store.monthlyData.length) {
-        const force = (store.dateRange.selectedRangeMonths === store.totalMonths);
+        const force = (store.dateRange.selectedRangeMonths === store.effectiveTotalMonths);
         handleBarClick(store.monthlyData[idx], force);
       }
     }
-
     function toggleGraphMode() {
       stopAllPlayback();
       store.updateDateRange({ isGraphMode: !store.dateRange.isGraphMode });
@@ -171,80 +180,88 @@ export default {
         });
       }
     }
-
+    // Fix: for multi-month selection, compute the starting month as first day.
     function handleBarClick(month, forceOneMonth = false) {
       if (store.dateRange.selectedRangeMonths === store.totalMonths) {
         forceOneMonth = true;
       }
       const [year, monthStr] = month.date.split('-');
-      const monthIndex = parseInt(monthStr) - 1;
-      const newEndDate = new Date(parseInt(year), monthIndex + 1, 0);
+      const mIdx = parseInt(monthStr) - 1;
+      const newEndDate = new Date(parseInt(year), mIdx + 1, 0);
       let newStartDate;
       if (forceOneMonth || store.dateRange.selectedRangeMonths === 1) {
-        newStartDate = new Date(parseInt(year), monthIndex, 1);
+        newStartDate = new Date(parseInt(year), mIdx, 1);
       } else {
-        newStartDate = new Date(newEndDate);
-        newStartDate.setMonth(newStartDate.getMonth() - (store.dateRange.selectedRangeMonths - 1));
+        // Instead of copying newEndDate, compute using the clicked month index.
+        newStartDate = new Date(parseInt(year), mIdx - (store.dateRange.selectedRangeMonths - 1), 1);
       }
       store.updateDateRange({ startDate: newStartDate, endDate: newEndDate });
       if ((forceOneMonth || store.dateRange.selectedRangeMonths === 1) && dateRangeSlider.value?.noUiSlider) {
-        nextTick(() => { dateRangeSlider.value.noUiSlider.set(1); });
+        nextTick(() => {
+          dateRangeSlider.value.noUiSlider.set(1);
+        });
       }
-      scrollToCurrentRange();
       emit('dateRangeChanged', {
         startDate: store.dateRange.startDate,
         endDate: store.dateRange.endDate,
         selectedRangeMonths: store.dateRange.selectedRangeMonths
       });
     }
-
     function directBarClick(month) {
       if (!store.dateRange.isGraphMode) return;
       stopAllPlayback();
       handleBarClick(month, false);
     }
-
-    // Update handleYearClick to use the store's fullRangeEnd when applicable.
+    // When clicking a year, if it is the last available year, select only the available months;
+    // otherwise select 12 months.
     function handleYearClick(year) {
       if (!store.dateRange.isGraphMode) return;
       stopAllPlayback();
-      // If the clicked year equals the full range end year, use the dynamic end date.
-      const newEnd = (year === store.fullRangeEnd.getFullYear())
-        ? new Date(store.fullRangeEnd)
-        : new Date(year, 11, 31);
-      store.updateDateRange({ endDate: newEnd, selectedRangeMonths: 12 });
-      if (dateRangeSlider.value?.noUiSlider) {
-        dateRangeSlider.value.noUiSlider.set(12);
+      if (year === store.effectiveFullRangeEnd.getFullYear()) {
+        const monthsThisYear = store.monthlyData.filter(m => m.year === year);
+        if (monthsThisYear.length > 0) {
+          const firstAvail = monthsThisYear[0].month;
+          const lastAvail = monthsThisYear[monthsThisYear.length - 1].month;
+          const rangeMonths = lastAvail - firstAvail + 1;
+          const newStart = new Date(year, firstAvail, 1);
+          const newEnd = new Date(year, lastAvail + 1, 0);
+          store.updateDateRange({ startDate: newStart, endDate: newEnd, selectedRangeMonths: rangeMonths });
+          if (dateRangeSlider.value?.noUiSlider) {
+            dateRangeSlider.value.noUiSlider.set(rangeMonths);
+          }
+        }
+      } else {
+        const newStart = new Date(year, 0, 1);
+        const newEnd = new Date(year, 11, 31);
+        store.updateDateRange({ startDate: newStart, endDate: newEnd, selectedRangeMonths: 12 });
+        if (dateRangeSlider.value?.noUiSlider) {
+          dateRangeSlider.value.noUiSlider.set(12);
+        }
+        updateDateRangeFromMonths();
       }
-      updateDateRangeFromMonths();
-      scrollToCurrentRange();
       emit('dateRangeChanged', {
         startDate: store.dateRange.startDate,
         endDate: store.dateRange.endDate,
         selectedRangeMonths: store.dateRange.selectedRangeMonths
       });
     }
-
     function getBarHeight(month) {
       return store.maxCount > 0 ? `${(month.count / store.maxCount) * 100}%` : '0%';
     }
-
     function getBarOpacity(month) {
       if (!store.dateRange.isGraphMode) return 1;
       return isInCurrentRange(month) ? 1 : 0.3;
     }
-
     function isMonthActive(month) {
       return isInCurrentRange(month);
     }
-
+    // This function compares the bar’s month (first day) with the selected range.
     function isInCurrentRange(month) {
       if (!store.dateRange.isGraphMode) return true;
       if (!store.dateRange.startDate || !store.dateRange.endDate) return true;
       const monthDate = new Date(month.year, month.month);
       return monthDate >= store.dateRange.startDate && monthDate <= store.dateRange.endDate;
     }
-
     function isYearInRange(year) {
       if (!store.dateRange.isGraphMode) return false;
       if (!store.dateRange.startDate || !store.dateRange.endDate) return false;
@@ -256,30 +273,23 @@ export default {
         (store.dateRange.startDate <= yearStart && store.dateRange.endDate >= yearEnd)
       );
     }
-
     function showMonthTooltip(event, month) {
       const rect = event.target.getBoundingClientRect();
       tooltipStyle.value = { left: rect.left + rect.width / 2 + 'px', top: rect.top + 'px' };
       tooltipData.value = month;
     }
-
     function showYearTooltip(event, yearLabel) {
       const rect = event.target.getBoundingClientRect();
-      const count = getYearFeatureCount(yearLabel.year);
+      const count = store.monthlyData.filter(m => m.year === yearLabel.year)
+                                      .reduce((sum, m) => sum + m.count, 0);
       if (count > 0) {
         tooltipStyle.value = { left: rect.left + rect.width / 2 + 'px', top: rect.top + 'px' };
         tooltipData.value = { label: `${yearLabel.year} год`, count };
       }
     }
-
     function hideTooltip() {
       tooltipData.value = null;
     }
-
-    function getYearFeatureCount(year) {
-      return store.monthlyData.filter(m => m.year === year).reduce((sum, m) => sum + m.count, 0);
-    }
-
     function startRangeDrag(event) {
       if (!store.dateRange.isGraphMode || isAllRangeSelected()) return;
       isDragging.value = true;
@@ -287,13 +297,10 @@ export default {
       document.addEventListener('mousemove', handleRangeDrag);
       document.addEventListener('mouseup', stopRangeDrag);
     }
-
     function handleRangeDrag(event) {
       if (!isDragging.value || !store.dateRange.isGraphMode || isAllRangeSelected()) return;
       const dx = event.clientX - dragStartX.value;
-      if (!histogramContainer.value) return;
-      const containerWidth = histogramContainer.value.offsetWidth;
-      const monthsDelta = Math.round((dx / containerWidth) * store.monthlyData.length);
+      const monthsDelta = Math.round(dx / BAR_TOTAL_WIDTH);
       if (monthsDelta !== 0) {
         let newStart = new Date(store.dateRange.startDate);
         newStart.setMonth(newStart.getMonth() + monthsDelta);
@@ -317,14 +324,12 @@ export default {
         }
       }
     }
-
     function stopRangeDrag() {
       isDragging.value = false;
       document.removeEventListener('mousemove', handleRangeDrag);
       document.removeEventListener('mouseup', stopRangeDrag);
       scrollToCurrentRange();
     }
-
     function initializeDateRangeSlider() {
       const element = dateRangeSlider.value;
       if (!element) return;
@@ -411,7 +416,6 @@ export default {
         });
       });
     }
-
     function initializePlaybackSlider() {
       const element = playbackSlider.value;
       if (!element) return;
@@ -452,7 +456,6 @@ export default {
         });
       });
     }
-
     let playbackInterval = null;
     function setPlaybackSpeedAndDirection(speed) {
       if (speed === 0) {
@@ -500,7 +503,6 @@ export default {
         playbackSlider.value.noUiSlider.set(zeroIndex);
       }
     }
-    // In moveRange, replace hardcoded end date with store.fullRangeEnd.
     function moveRange(step) {
       if (!store.dateRange.isGraphMode) return;
       if (isAllRangeSelected() && store.playback.isPlaying) {
@@ -552,53 +554,6 @@ export default {
         selectedRangeMonths: store.dateRange.selectedRangeMonths
       });
     }
-    function isAllRangeSelected() {
-      return store.dateRange.selectedRangeMonths === store.totalMonths;
-    }
-    // Update updateDateRangeFromMonths to use store.fullRangeEnd.
-    function updateDateRangeFromMonths() {
-      if (!store.dateRange.isGraphMode) {
-        store.updateDateRange({
-          startDate: new Date(store.fullRangeStart),
-          endDate: new Date(store.fullRangeEnd),
-          selectedRangeMonths: store.totalMonths
-        });
-        return;
-      }
-      const months = store.dateRange.selectedRangeMonths;
-      if (months === store.totalMonths) {
-        store.updateDateRange({
-          startDate: new Date(store.fullRangeStart),
-          endDate: new Date(store.fullRangeEnd),
-          selectedRangeMonths: months
-        });
-        return;
-      }
-      let endDate = store.dateRange.endDate || new Date(store.fullRangeEnd);
-      let startDate = new Date(endDate);
-      startDate.setMonth(endDate.getMonth() - (months - 1));
-      if (startDate < new Date(2000, 0, 1)) {
-        const newStart = new Date(2000, 0, 1);
-        let newEnd = new Date(newStart);
-        newEnd.setMonth(newStart.getMonth() + (months - 1));
-        store.updateDateRange({
-          startDate: newStart,
-          endDate: newEnd > new Date(store.fullRangeEnd) ? new Date(store.fullRangeEnd) : newEnd,
-          selectedRangeMonths: months
-        });
-      } else if (endDate > new Date(store.fullRangeEnd)) {
-        let newEnd = new Date(store.fullRangeEnd);
-        let newStart = new Date(newEnd);
-        newStart.setMonth(newEnd.getMonth() - (months - 1));
-        store.updateDateRange({
-          startDate: newStart < new Date(2000, 0, 1) ? new Date(2000, 0, 1) : newStart,
-          endDate: newEnd,
-          selectedRangeMonths: months
-        });
-      } else {
-        store.updateDateRange({ startDate, endDate, selectedRangeMonths: months });
-      }
-    }
     function scrollToCurrentRange() {
       nextTick(() => {
         if (!histogramWrapper.value) return;
@@ -609,10 +564,7 @@ export default {
         const endKey = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`;
         const index = store.monthlyData.findIndex(m => m.date === endKey);
         if (index === -1) return;
-        const totalWidth = container.scrollWidth;
-        const visibleWidth = wrapper.offsetWidth;
-        const barWidth = totalWidth / store.monthlyData.length;
-        const targetPosition = barWidth * index - visibleWidth / 3;
+        const targetPosition = index * BAR_TOTAL_WIDTH - wrapper.offsetWidth / 3;
         wrapper.scrollTo({ left: Math.max(0, targetPosition) });
       });
     }
@@ -678,6 +630,48 @@ export default {
         playbackSlider.value.noUiSlider.destroy();
       }
     }
+    function updateDateRangeFromMonths() {
+      if (!store.dateRange.isGraphMode) {
+        store.updateDateRange({
+          startDate: new Date(store.fullRangeStart),
+          endDate: new Date(store.fullRangeEnd),
+          selectedRangeMonths: store.totalMonths
+        });
+        return;
+      }
+      const months = store.dateRange.selectedRangeMonths;
+      if (months === store.effectiveTotalMonths) {
+        store.updateDateRange({
+          startDate: new Date(store.effectiveFullRangeStart),
+          endDate: new Date(store.effectiveFullRangeEnd),
+          selectedRangeMonths: months
+        });
+        return;
+      }
+      if (months === 1) {
+        let endDate = store.dateRange.endDate || new Date(store.effectiveFullRangeEnd);
+        let startDate = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        let computedEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+        store.updateDateRange({ startDate, endDate: computedEnd, selectedRangeMonths: 1 });
+        return;
+      }
+      let endDate = store.dateRange.endDate || new Date(store.effectiveFullRangeEnd);
+      let startDate = new Date(endDate);
+      startDate.setMonth(endDate.getMonth() - (months - 1));
+      if (startDate < new Date(store.effectiveFullRangeStart)) {
+        startDate = new Date(store.effectiveFullRangeStart);
+        endDate = new Date(startDate);
+        endDate.setMonth(startDate.getMonth() + (months - 1));
+        store.updateDateRange({ startDate, endDate, selectedRangeMonths: months });
+      } else if (endDate > new Date(store.effectiveFullRangeEnd)) {
+        endDate = new Date(store.effectiveFullRangeEnd);
+        startDate = new Date(endDate);
+        startDate.setMonth(endDate.getMonth() - (months - 1));
+        store.updateDateRange({ startDate, endDate, selectedRangeMonths: months });
+      } else {
+        store.updateDateRange({ startDate, endDate, selectedRangeMonths: months });
+      }
+    }
     return {
       store,
       dateRangeSlider,
@@ -692,7 +686,7 @@ export default {
       rangeOverlayStyle,
       toggleGraphMode,
       containerClick,
-      handleHistogramClick, // dummy handler
+      handleHistogramClick: () => {},
       directBarClick,
       handleYearClick,
       showMonthTooltip,
@@ -703,11 +697,52 @@ export default {
       isMonthActive,
       isInCurrentRange,
       isYearInRange,
-      startRangeDrag
+      startRangeDrag,
+      computedYearLabels
     };
   }
 };
 </script>
+
+<style scoped>
+.histogram-scroll-container {
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.histogram-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+.histogram-bar {
+  display: inline-block;
+  width: 3px;
+  margin-right: 4px;
+  background-color: #007bff;
+}
+.year-labels {
+  position: relative;
+  margin-top: 4px;
+  height: 1.2rem;
+}
+.year-label {
+  position: absolute;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.year-label.highlighted {
+  font-weight: bold;
+}
+.histogram-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+</style>
+
 
 <style scoped>
 .date-controls-container {
