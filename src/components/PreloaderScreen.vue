@@ -10,9 +10,23 @@
 <script>
 export default {
   name: 'PreloaderScreen',
-  emits: ['closePreloader']
+  emits: ['closePreloader'],
+  methods: {
+    handleKeydown(event) {
+      if (event.key === 'Escape' || event.keyCode === 27) {
+        this.$emit('closePreloader');
+      }
+    }
+  },
+  mounted() {
+    document.addEventListener('keydown', this.handleKeydown);
+  },
+  beforeUnmount() {
+    document.removeEventListener('keydown', this.handleKeydown);
+  }
 }
 </script>
+
 <style scoped>
 .preloader {
   position: fixed;

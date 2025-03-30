@@ -54,9 +54,17 @@ export default {
   top: 10px;
   height: 30px;
   padding: 0;
+  z-index: 16;
 }
 .how-to:hover{
   color: black;
   background-color: white;
+}
+
+@media (max-width: 1150px) {  
+  .how-to { 
+    top: 130px;
+    right: 10px;
+  }
 }
 </style>

@@ -66,9 +66,17 @@ export default {
   padding: 0;
   font-size: 40px;
   line-height: 30px;
+  z-index: 16;
 }
 .letters:hover{
   color: black;
   background-color: white;
+}
+
+@media (max-width: 1150px) {  
+  .letters{
+    right: 10px;
+    left: auto;
+  }
 }
 </style>

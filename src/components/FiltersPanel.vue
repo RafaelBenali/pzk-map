@@ -19,6 +19,15 @@
       >
         Фильтры
       </button>
+
+
+      <button
+        class="filters-toggle filters-toggle-mobile"
+        @click="resetFilters"
+        :class="{ 'active-filter': hasAnyActiveFilters }"
+      >
+        Сбросить
+      </button>
       
       <!-- Inline additional filters (appear when filtersVisible is true) -->
       <div v-if="filtersVisible" class="inline-filters">
@@ -74,7 +83,7 @@
 
       <!-- Reset Filters button -->
       <button
-        class="filters-toggle"
+        class="filters-toggle filters-toggle-main"
         @click="resetFilters"
         :class="{ 'active-filter': hasAnyActiveFilters }"
       >
@@ -397,6 +406,9 @@ export default {
   left: 10px;
   position: relative;
 } 
+.filters-toggle-mobile{
+  display: none;
+}
 .filters-toggle:last-child {
 	border-color: #fff !important;
 }
@@ -419,7 +431,7 @@ export default {
   border-radius: 4px;
   min-width: 500px;
   min-height: 100px;
-  max-height: calc(100vh - 390px);
+  max-height: calc(100vh - 160px);
   overflow-y: auto; 
 }
 .filters, .filters-toggle {
@@ -487,15 +499,16 @@ export default {
 .inline-checkbox [type=checkbox]:checked + span {
   background: white;
 }
+ 
 
-@media (max-width: 1100px) {
-  .filters {
-    height: calc(100vh - 333px);
+/* For screens under 1150px */
+@media (max-width: 1150px) {
+  .search-input {
+    margin: 10px 5px 5px 10px;
+    height: 43px;
+    padding-top: 0;
+    padding-bottom: 0;
   }
-}
-
-/* For screens under 980px */
-@media (max-width: 980px) {
   .filter-checkbox {
     position: fixed;
     bottom: 20px;
@@ -506,13 +519,6 @@ export default {
     left: auto !important;
     position: absolute;
     top: 10px;
-  }
-  .search-input {
-    margin-left: 10px;
-    float: none;
-    display: block;
-    margin-bottom: 10px;
-    width: 211px;
   }
   .filters-toggle {
     float: none !important;
@@ -528,12 +534,66 @@ export default {
     margin-top: 10px;
   }
   .filters {
-    height: calc(100vh - 390px);
-    top: 145px;
+    height: calc(100vh - 190px);
+    top: 130px;
     width: calc(100vw - 60px);
     right: 20px;
     min-width: 0;
   }
+  .inline-checkbox { 
+    margin-top: 2px;
+    font-size: 16px;
+  }
+  .checkboxes {
+    padding-top: 0px; 
+  }
+  .filters-toggle{
+    height: 45px;
+  }
 }
 
+@media (max-width: 950px) { 
+  .inline-filters  {
+    display: flex;
+    margin-top: 10px;
+  }
+ .filters-container .filters-toggle-main{
+    display: none;
+  }
+  .filters-toggle-mobile{
+    display: inline-block;
+  }
+}
+
+@media (max-width: 650px) { 
+  .inline-filters  {
+    display: block; 
+  }
+  .checkboxes {
+    margin-left: 10px;
+    margin-top: 12px; 
+  }
+}
+
+@media (max-width: 550px) {
+  .search-input { 
+    font-size: 14px;
+    height: 30px; 
+    display: block;
+    margin-bottom: 10px;
+  } 
+  .filters-toggle{
+    height: 34px;
+  }
+  .filters{ 
+    top: 140px;   
+  }
+}
+
+@media (max-width: 350px) {
+  .search-input {  
+    padding-right: 5px;
+    padding-left: 5px; 
+  }
+}
 </style>

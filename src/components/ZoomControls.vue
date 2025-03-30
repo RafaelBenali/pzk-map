@@ -83,7 +83,7 @@ export default {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 15;
+  z-index: 16;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -124,16 +124,16 @@ export default {
   height: 100%;
 }
 /* Custom noUiSlider rules for zoom control */
-.zoom-slider ::v-deep .noUi-connects {
+.zoom-slider :deep(.noUi-connects) {
   background-color: hsla(0,0%,100%,.3);
 }
 .zoom-slider.noUi-target {
 	background-color: transparent;
 }
-.zoom-slider ::v-deep .noUi-connect {
+.zoom-slider :deep(.noUi-connect) {
   background-color: white;
 }
-.zoom-slider ::v-deep .noUi-handle {
+.zoom-slider :deep(.noUi-handle) {
   width: 18px;
   height: 18px;
   border-radius: 9px;
@@ -143,19 +143,20 @@ export default {
   right: -7px;
   cursor: row-resize;
 }
-.zoom-slider ::v-deep .noUi-handle:before,
-.zoom-slider ::v-deep .noUi-handle:after {
+.zoom-slider :deep(.noUi-handle:before),
+.zoom-slider :deep(.noUi-handle:after) {
   display: none;
 }
-@media (max-width: 980px) {
+@media (max-width: 1150px) {
   .zoom-slider-container {
     display: none;
   }
   .zoom-controls {
-    left: 10px !important;
-    right: auto !important;
-    bottom: auto !important;
-    top: 150px;
+    left: auto !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    top: auto;
+    padding: 1.2px;
   }
 }
 
