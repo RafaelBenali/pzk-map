@@ -512,7 +512,7 @@ export default {
 /* global.css */ 
 @font-face {
   font-family: 'Montserrat';
-  src: url('./Montserrat-Regular.ttf') format('truetype');
+  src: url('/Montserrat-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }
