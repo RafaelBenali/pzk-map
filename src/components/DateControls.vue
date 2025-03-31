@@ -106,7 +106,7 @@ export default {
     const scrollPosition = ref(0);
     // Flag indicating a boundary has been reached
     const hasReachedLimit = ref(false);
-    const allowedValues = [-8, -4, -2, -1, 0, 1, 2, 4, 8];
+    const allowedValues = [-3, -2, -1, 0, 1, 2, 3];
     const BAR_TOTAL_WIDTH = 7;
     // For full‑range mode playback:
     const isFullRangeExpandingPlayback = ref(false);
@@ -249,12 +249,10 @@ export default {
           if (m === maxMonths)
             return '2000 - ' + store.fullRangeEnd.getFullYear();
           if (m <= 6) return m + 'м';
-          if (m === 12) return '1г';
-          if (m === 18) return '1.5г';
+          if (m === 12) return '1г'; 
           if (m === 24) return '2г';
           if (m === 36) return '3г';
-          if (m === 60) return '5л';
-          if (m === 120) return '10л';
+          if (m === 60) return '5л'; 
           return m + 'м';
         },
         from: () => {}
@@ -266,24 +264,22 @@ export default {
         snap: true,
         range: {
           min: [1],
-          '3%': [2],
-          '6%': [3],
-          '9%': [4],
-          '12%': [5],
-          '15%': [6],
-          '30%': [12],
-          '40%': [18],
-          '50%': [24],
-          '60%': [36],
-          '70%': [60],
-          '80%': [120],
+          '10%': [2],
+          '15%': [3],
+          '20%': [4],
+          '25%': [5],
+          '30%': [6],
+          '45%': [12], 
+          '60%': [24],
+          '68%': [36],
+          '75%': [60], 
           max: [maxMonths]
         },
         step: 1,
         tooltips: [format],
         pips: {
           mode: 'values',
-          values: [maxMonths, 120, 60, 36, 24, 18, 12, 6, 3, 1],
+          values: [maxMonths, 60, 24, 12, 6, 3, 1],
           format,
           density: 4
         }
@@ -385,16 +381,16 @@ export default {
     
     noUiSlider.create(el, {
       start: [startIndex],
-      range: { min: 0, max: 8 },
+      range: { min: 0, max: 6 },
       step: 1,
       tooltips: false,
       pips: {
         mode: 'values',
-        values: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+        values: [0, 1, 2, 3, 4, 5, 6],
         format: {
           to: v => {
             const spd = allowedValues[v];
-            return spd === 0 ? 'Pause' : spd + 'x';
+            return spd === 0 ? 'Пауза' : spd + 'x';
           }
         },
         density: 10
@@ -410,7 +406,13 @@ export default {
         isHandlingEvent = true;
         const idx = parseInt(values[0]);
         const spd = allowedValues[idx];
-        setPlaybackSpeedAndDirection(spd);
+        
+        // CRITICAL FIX: For pause pip, directly call pausePlayback
+        if (spd === 0) {
+          pausePlayback(false);
+        } else {
+          setPlaybackSpeedAndDirection(spd);
+        }
       } finally {
         // Always reset the flag even if an error occurs
         setTimeout(() => {
@@ -434,14 +436,18 @@ export default {
         isHandlingEvent = false;
         
         const txt = e.target.innerText;
-        let idx = allowedValues.indexOf(0);
-        if (txt !== 'Pause') {
-          const spd = parseInt(txt.replace('x', ''));
-          idx = allowedValues.indexOf(spd);
+        if (txt === 'Пауза') {
+          // Set slider to 0 position
+          el.noUiSlider.set(allowedValues.indexOf(0));
+          // Directly call pausePlayback to ensure it happens
+          pausePlayback(false);
+          return;
         }
-        
-        // Set without triggering the handler again
-        el.noUiSlider.set(idx);
+        const spd = parseInt(txt.replace('x', ''));
+        const idx = allowedValues.indexOf(spd);
+        if (idx !== -1) {
+          el.noUiSlider.set(idx);
+        } 
       });
     });
   }
@@ -1594,13 +1600,13 @@ export default {
   position: relative;
   padding: 0;
   height: 100%;
-  display: inline-block;
+  display: inline-block; 
 }
 .control-buttons-row {
   display: flex;
   gap: 15px;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 25px;
   width: calc(100vw - 40px);
   max-width: 100%;
   position: fixed;
@@ -1615,6 +1621,8 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   margin: 0 4px;
+  position: relative;
+  bottom: -15px;
 }
 #app .button-time:hover { 
   color: black !important;
@@ -1635,6 +1643,8 @@ export default {
   color: white;
   opacity: 0.5;
   pointer-events: none;
+  position: relative;
+  bottom: -15px;
 }
 .date-range-slider-container {
   width: 200px;
@@ -1661,7 +1671,7 @@ export default {
   margin-top: 20px;
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
-  margin-bottom: 80px;
+  margin-bottom: 100px;
 }
 .histogram-wrapper::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
@@ -1747,7 +1757,7 @@ export default {
 .custom-scrollbar-container {
   position: absolute;
   height: 10px;
-  bottom: 80px;
+  bottom: 100px;
   left: 0;
   right: 0; 
   border-radius: 5px;
@@ -1795,8 +1805,49 @@ export default {
 .date-slider-container.disabled {
   opacity: 0.5;
 }
-
+.playback-slider-container :deep(.noUi-value[data-value="0"]::before){ 
+  content: '◄◄◄';
+  font-size: 12px !important;
+  line-height: 12px;
+}
+.playback-slider-container :deep(.noUi-value[data-value="1"]::before){ 
+  content: '◄◄';
+  font-size: 12px !important;
+  line-height: 12px;
+}
+:deep(.noUi-value[data-value="2"]::before){ 
+  content: '◄';
+  font-size: 12px !important;
+  line-height: 12px;
+}
+.playback-slider-container  :deep(.noUi-value){
+  font-size: 0 !important;
+}
+.playback-slider-container :deep(.noUi-value[data-value="3"]){  
+  font-size: 12px !important;
+  line-height: 12px;
+}
+.playback-slider-container :deep(.noUi-value[data-value="4"]::before){ 
+  content: '►';
+  font-size: 12px !important;
+  line-height: 12px;
+}
+.playback-slider-container :deep(.noUi-value[data-value="5"]::before){ 
+  content: '►►';
+  font-size: 12px !important;
+  line-height: 12px;
+}
+.playback-slider-container :deep(.noUi-value[data-value="6"]::before){ 
+  content: '►►►';
+  font-size: 12px !important;
+  line-height: 12px;
+}
  
+:deep(.noUi-value-horizontal:last-child){
+  font-weight: bold;
+}
+
+
 @media (max-width: 1150px) {
   .date-controls-container{ 
     bottom: 0;

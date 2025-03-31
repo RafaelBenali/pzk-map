@@ -1,10 +1,14 @@
 <template>
   <div @click="openModal" class="counter-wrap">
     <img src="/custom-marker-hover.png" alt="Marker" />
-    <div class="counter">
-      <!-- Using Math.floor() to display an integer value -->
-      <span>{{ Math.floor(animatedCount) }}</span>
-      <span style="display: block;">пзк</span>
+    <div class="counter"> 
+      <template v-if="isDataLoaded">
+        <span>{{ Math.floor(animatedCount) }}</span>
+        <span style="display: block;">пзк</span>
+      </template>
+      <template v-else>
+        <div class="spinner"></div>
+      </template>
     </div>
   </div>
 
@@ -34,14 +38,16 @@ export default {
     const store = useMapStore();
     const latestUpdate = computed(() => store.manifestData?.latestUpdate || 'Not available');
 
-    // Create a reactive value for the animated display count
+    // Animated count for the display
     const animatedCount = ref(store.displayCount);
 
-    // Watch for changes in the store's displayCount
+    // Computed property to determine if the data is loaded (assuming geojsonData is null until loaded)
+    const isDataLoaded = computed(() => store.geojsonData !== null);
+
+    // Watch for changes in the store's displayCount and animate if GraphMode is disabled
     watch(
       () => store.displayCount,
       (newVal) => {
-        // Only animate if GraphMode is disabled
         if (store.dateRange.isGraphMode) {
           animatedCount.value = newVal;
           return;
@@ -67,8 +73,7 @@ export default {
       }
     );
 
-
-    return { store, latestUpdate, animatedCount }
+    return { store, latestUpdate, animatedCount, isDataLoaded };
   },
   data() {
     return {
@@ -85,6 +90,7 @@ export default {
   }
 }
 </script>
+ 
 
 <style scoped>
 .counter-wrap { 
@@ -112,10 +118,29 @@ export default {
   text-transform: uppercase;
   font-weight: bold;
   text-align: center;
+  min-height: 45px;
 }
 .modal{
   z-index: 100;
 }
+
+
+.spinner{
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #000;
+	border-radius: 50%;
+	width: 10px;
+	height: 10px;
+	animation: spin-9bd91872 1s linear infinite;
+  margin-top: 15px;
+  margin-left: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 @media (max-width: 1150px) {
   .counter-wrap {
     right: 10px !important;
