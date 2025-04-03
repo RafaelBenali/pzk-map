@@ -157,6 +157,7 @@ export default {
     bottom: 10px !important;
     top: auto;
     padding: 1.2px;
+    position: fixed;
   }
 }
 

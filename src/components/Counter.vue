@@ -147,6 +147,7 @@ export default {
     left: auto !important;
     position: absolute;
     top: 10px;
+    z-index: 17;
   }
   .counter-wrap img {
     width: 25px;

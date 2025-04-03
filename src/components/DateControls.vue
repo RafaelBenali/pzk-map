@@ -1853,6 +1853,7 @@ export default {
     bottom: 0;
     left: 0;
     right: 0; 
+    position: fixed;
   }
   .date-slider-container{
     width: 100vw;
@@ -1921,6 +1922,9 @@ export default {
   }
   .stats-group {
     padding-top: 10px;
+  }
+  .histogram-tooltip{
+    display: none;
   }
 }
 </style>

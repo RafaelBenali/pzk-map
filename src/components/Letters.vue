@@ -57,9 +57,11 @@ export default {
   top: 80px;
   height: 40px;
   padding: 0;
-  font-size: 40px;
-  line-height: 30px;
+  font-size: 40px; 
   z-index: 16;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 .letters:hover{
   color: black;
