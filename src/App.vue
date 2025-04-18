@@ -74,7 +74,7 @@ export default {
 
     async function loadManifest() {
       try {
-        const response = await fetch(`/manifest.json`)
+        const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/manifest.json`)
         if (!response.ok) throw new Error('Failed to fetch manifest')
         const manifest = await response.json()
         store.setManifestData(manifest)
@@ -86,7 +86,7 @@ export default {
     async function loadGeoJSONData() {
       try {
         const geojsonFile = store.manifestData?.latestGeojson || 'list_841_14-02-2025.geojson'
-        const response = await fetch('/list_899_30-03-2025.geojson')
+        const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/${geojsonFile}`)
         if (!response.ok) throw new Error('Failed to fetch GeoJSON')
         const data = await response.json()
         store.setGeojsonData(data)
@@ -97,14 +97,13 @@ export default {
 
     async function loadFallbackGeoJSONData() {
       try {
-        const response = await fetch(`rf.geojson`)
+        const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/rf.geojson`)
         if (!response.ok) throw new Error('Failed to fetch rf.geojson')
         const fallbackData = await response.json()
         fallbackCoordinates = fallbackData.features.map(f => f.geometry.coordinates)
       } catch (error) {
         console.error('Error loading fallback GeoJSON:', error)
       }
-    }
 
     async function initializeMap() {
       mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
