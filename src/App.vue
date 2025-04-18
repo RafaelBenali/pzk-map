@@ -72,7 +72,7 @@ export default {
     // NEW: Fallback coordinates storage for rf.geojson features.
     let fallbackCoordinates = []
 
-    async function loadManifest() {
+    async function loadManifest() { 
       try {
         const response = await fetch(`${import.meta.env.VITE_ASSETS_BASE_URL}/manifest.json`)
         if (!response.ok) throw new Error('Failed to fetch manifest')
@@ -104,6 +104,7 @@ export default {
       } catch (error) {
         console.error('Error loading fallback GeoJSON:', error)
       }
+    }
 
     async function initializeMap() {
       mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
